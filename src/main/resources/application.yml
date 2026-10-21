@@ -1,0 +1,16 @@
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+inference:
+  base-url: ${INFERENCE_BASE_URL:http://localhost:8000}
+  model: ${INFERENCE_MODEL:}
+  api-key: ${INFERENCE_API_KEY:}
+  mode: ${INFERENCE_MODE:live}
+  timeout-seconds: ${INFERENCE_TIMEOUT_SECONDS:45}
