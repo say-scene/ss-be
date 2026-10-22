@@ -18,6 +18,8 @@ public class InferenceController {
     private final ObjectMapper json;
     private final String baseUrl, model, apiKey, mode;
     private final Duration timeout;
+    @Value("${inference.reasoning-effort:}")
+    private String reasoningEffort = "";
 
     public InferenceController(@Value("${inference.base-url}") String baseUrl,
             @Value("${inference.model}") String model,
@@ -38,10 +40,11 @@ public class InferenceController {
         String requestId = UUID.randomUUID().toString();
         if (model.isBlank()) return error(503, "INFERENCE_NOT_CONFIGURED", requestId);
         try {
-            var payload = Map.of("model", model, "stream", false, "max_tokens", 128,
+            var payload = new HashMap<String, Object>(Map.of("model", model, "stream", false, "max_tokens", 128,
                 "messages", List.of(
                     Map.of("role", "system", "content", "You are a friendly cafe barista. Greet a customer in one short English sentence and ask what they would like to order. Return only the spoken sentence."),
-                    Map.of("role", "user", "content", "A customer has just entered the cafe. Start the conversation.")));
+                    Map.of("role", "user", "content", "A customer has just entered the cafe. Start the conversation."))));
+            if (!reasoningEffort.isBlank()) payload.put("reasoning_effort", reasoningEffort);
             var builder = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/chat/completions"))
                 .timeout(timeout).header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload)));
