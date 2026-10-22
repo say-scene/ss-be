@@ -4,4 +4,4 @@ inference:
   model: qwen3:8b
   mode: live
   reasoning-effort: none
-  timeout-seconds: 45
+  timeout-seconds: 180

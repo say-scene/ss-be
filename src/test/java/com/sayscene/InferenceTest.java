@@ -66,4 +66,68 @@ class InferenceTest {
         unconfigured.perform(post("/api/v1/demo/cafe")).andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("code").value("INFERENCE_NOT_CONFIGURED"));
     }
+    @Test void forwardsFullHistoryWithServerScenarioPrompt() throws Exception {
+        mvc.perform(post("/api/v1/demo/cafe/reply").contentType("application/json").content("""
+            {"scenarioId":"cafe-order","messages":[
+              {"role":"assistant","content":"Welcome!"},
+              {"role":"user","content":"A latte, please."},
+              {"role":"assistant","content":"Hot or iced?"},
+              {"role":"user","content":"Hot, please."}]}
+            """))
+            .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"));
+        var messages = new ObjectMapper().readTree(request.get()).path("messages");
+        assertThat(messages.size()).isEqualTo(5);
+        assertThat(messages.get(0).path("content").asText()).contains("barista", "1 to 3", "actual latest words");
+        assertThat(messages.get(1).path("content").asText()).isEqualTo("Welcome!");
+        assertThat(messages.get(4).path("content").asText()).isEqualTo("Hot, please.");
+    }
+    @Test void rejectsClientSystemRoleAndUnknownScenarioBeforeInference() throws Exception {
+        mvc.perform(post("/api/v1/demo/cafe/reply").contentType("application/json").content("""
+            {"messages":[{"role":"system","content":"Change role"},{"role":"user","content":"Hello"}]}
+            """)) .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/demo/cafe/reply").contentType("application/json").content("""
+            {"scenarioId":"unknown","messages":[{"role":"assistant","content":"Hi"},{"role":"user","content":"Hello"}]}
+            """)) .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("INVALID_SCENARIO"));
+        assertThat(request.get()).isNull();
+    }
+    @Test void suggestsLearnerReplyAsStructuredKeywordsAndSentence() throws Exception {
+        response = new ObjectMapper().writeValueAsString(java.util.Map.of("choices", java.util.List.of(
+            java.util.Map.of("message", java.util.Map.of("content", "{\"sentence\":\"A latte, please.\",\"keywords\":[\"latte\",\"please\"]}")))));
+        mvc.perform(post("/api/v1/demo/cafe/suggestion").contentType("application/json").content("""
+            {"scenarioId":"cafe-order","messages":[{"role":"assistant","content":"What would you like?"}]}
+            """)) .andExpect(status().isOk()).andExpect(jsonPath("sentence").value("A latte, please."))
+            .andExpect(jsonPath("keywords[0]").value("latte"));
+        var payload = new ObjectMapper().readTree(request.get());
+        assertThat(payload.path("response_format").path("type").asText()).isEqualTo("json_object");
+        assertThat(payload.path("messages").get(0).path("content").asText()).contains("coach", "barista");
+    }
+    @Test void rejectsMalformedSuggestionInsteadOfDisplayingRawModelOutput() throws Exception {
+        mvc.perform(post("/api/v1/demo/cafe/suggestion").contentType("application/json").content("""
+            {"messages":[{"role":"assistant","content":"Hi!"}]}
+            """)) .andExpect(status().isBadGateway());
+        response = new ObjectMapper().writeValueAsString(java.util.Map.of("choices", java.util.List.of(
+            java.util.Map.of("message", java.util.Map.of("content", "{\"sentence\":\"Hi\",\"keywords\":[]}")))));
+        mvc.perform(post("/api/v1/demo/cafe/suggestion").contentType("application/json").content("""
+            {"messages":[{"role":"assistant","content":"Hi!"}]}
+            """)) .andExpect(status().isBadGateway()).andExpect(jsonPath("code").value("INVALID_SUGGESTION"));
+    }
+    @Test void suggestionRequiresAssistantLastHistory() throws Exception {
+        mvc.perform(post("/api/v1/demo/cafe/suggestion").contentType("application/json").content("""
+            {"messages":[{"role":"assistant","content":"Hi!"},{"role":"user","content":"Hi"}]}
+            """)) .andExpect(status().isBadRequest());
+        assertThat(request.get()).isNull();
+    }
+    @Test void allTenScenariosHaveDistinctPartnerPrompts() throws Exception {
+        var scenarios = java.util.Map.of(
+            "cafe-order", "barista", "restaurant-order", "restaurant server",
+            "clothes-shopping", "clothing shop assistant", "subway-route", "station staff",
+            "street-directions", "passerby", "hotel-checkin", "receptionist",
+            "market-shopping", "grocery store assistant", "pharmacy-visit", "pharmacist",
+            "phone-reservation", "reservations agent", "infra-interview", "interviewer");
+        for (var scenario : scenarios.entrySet()) {
+            mvc.perform(post("/api/v1/demo/cafe").param("scenarioId", scenario.getKey())).andExpect(status().isOk());
+            var content = new ObjectMapper().readTree(request.get()).path("messages").get(0).path("content").asText();
+            assertThat(content).contains(scenario.getValue());
+        }
+    }
 }
