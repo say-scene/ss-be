@@ -55,8 +55,17 @@ public class InferenceController {
     private record Scenario(String prompt, String opening) {}
     private static final String COMMON_PROMPT = promptResource("conversation.txt");
     // 새로운 장소·상황은 시나리오 프롬프트와 시작 지시를 등록한다.
-    private static final Map<String, Scenario> SCENARIOS = Map.of("cafe-order", new Scenario(
-        promptResource("cafe-order.txt"), "A customer has just entered the cafe. Greet them and ask what they would like to order."));
+    private static final Map<String, Scenario> SCENARIOS = Map.ofEntries(
+        Map.entry("cafe-order", new Scenario(promptResource("cafe-order.txt"), "Greet the customer and ask what drink they would like.")),
+        Map.entry("restaurant-order", new Scenario(promptResource("restaurant-order.txt"), "Welcome the diner and ask what kind of food they would like.")),
+        Map.entry("clothes-shopping", new Scenario(promptResource("clothes-shopping.txt"), "Welcome the shopper and ask what clothing they are looking for.")),
+        Map.entry("subway-route", new Scenario(promptResource("subway-route.txt"), "Ask the traveler which station they want to reach.")),
+        Map.entry("street-directions", new Scenario(promptResource("street-directions.txt"), "Ask the visitor where they are trying to go.")),
+        Map.entry("hotel-checkin", new Scenario(promptResource("hotel-checkin.txt"), "Welcome the guest and ask whether they have a reservation.")),
+        Map.entry("market-shopping", new Scenario(promptResource("market-shopping.txt"), "Greet the shopper and ask if they need help finding anything.")),
+        Map.entry("pharmacy-visit", new Scenario(promptResource("pharmacy-visit.txt"), "Greet the customer and ask how you can help. Do not diagnose or give specific drugs or dosages; this is language practice.")),
+        Map.entry("phone-reservation", new Scenario(promptResource("phone-reservation.txt"), "Answer the call and ask which date the caller would like to book.")),
+        Map.entry("infra-interview", new Scenario(promptResource("infra-interview.txt"), "Welcome the candidate and ask them to briefly introduce their infrastructure experience.")));
     private static String systemPrompt(Scenario scenario) { return COMMON_PROMPT + "\n\n" + scenario.prompt(); }
 
     public record ChatMessage(String role, String content) {}
@@ -81,7 +90,7 @@ public class InferenceController {
         if (scenario == null) return error(400, "INVALID_SCENARIO", requestId);
         var messages = new ArrayList<Map<String, String>>();
         messages.add(Map.of("role", "system", "content", suggestion
-            ? promptResource("suggestion.txt") + "\nPartner scenario (the learner plays the customer, NOT this role):\n" + scenario.prompt()
+            ? promptResource("suggestion.txt") + "\nPartner scenario (the learner is speaking to this partner, NOT playing this role):\n" + scenario.prompt()
             : systemPrompt(scenario)));
         for (int i = 0; i < body.messages().size(); i++) {
             var message = body.messages().get(i);

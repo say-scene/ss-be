@@ -117,4 +117,17 @@ class InferenceTest {
             """)) .andExpect(status().isBadRequest());
         assertThat(request.get()).isNull();
     }
+    @Test void allTenScenariosHaveDistinctPartnerPrompts() throws Exception {
+        var scenarios = java.util.Map.of(
+            "cafe-order", "barista", "restaurant-order", "restaurant server",
+            "clothes-shopping", "clothing shop assistant", "subway-route", "station staff",
+            "street-directions", "passerby", "hotel-checkin", "receptionist",
+            "market-shopping", "grocery store assistant", "pharmacy-visit", "pharmacist",
+            "phone-reservation", "reservations agent", "infra-interview", "interviewer");
+        for (var scenario : scenarios.entrySet()) {
+            mvc.perform(post("/api/v1/demo/cafe").param("scenarioId", scenario.getKey())).andExpect(status().isOk());
+            var content = new ObjectMapper().readTree(request.get()).path("messages").get(0).path("content").asText();
+            assertThat(content).contains(scenario.getValue());
+        }
+    }
 }
