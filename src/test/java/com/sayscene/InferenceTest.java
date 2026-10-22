@@ -39,8 +39,17 @@ class InferenceTest {
             .andExpect(jsonPath("mode").value("mock"));
         var body = new ObjectMapper().readTree(request.get());
         assertThat(body.path("stream").asBoolean()).isFalse();
+        assertThat(body.has("reasoning_effort")).isFalse();
         assertThat(body.path("model").asText()).isEqualTo("test-model");
         assertThat(body.path("messages").get(0).path("content").asText()).contains("barista");
+    }
+    @Test void sendsOptionalThinkingControlForLocalOllama() throws Exception {
+        var controller = new InferenceController("http://127.0.0.1:" + server.getAddress().getPort(),
+            "qwen3:8b", "", "live", 2, new ObjectMapper());
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "reasoningEffort", "none");
+        MockMvcBuilders.standaloneSetup(controller).build().perform(post("/api/v1/demo/cafe"))
+            .andExpect(status().isOk()).andExpect(jsonPath("mode").value("live"));
+        assertThat(new ObjectMapper().readTree(request.get()).path("reasoning_effort").asText()).isEqualTo("none");
     }
     @Test void hidesUpstreamErrors() throws Exception {
         upstreamStatus = 500; response = "private upstream error";

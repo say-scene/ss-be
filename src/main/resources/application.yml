@@ -14,3 +14,14 @@ inference:
   api-key: ${INFERENCE_API_KEY:}
   mode: ${INFERENCE_MODE:live}
   timeout-seconds: ${INFERENCE_TIMEOUT_SECONDS:45}
+
+# 로컬 STT의 검증용 상한: 녹음 30초, 파일 2MiB. 음성은 디스크에 저장하지 않는다.
+spring:
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
+      file-size-threshold: 3MB
+stt:
+  base-url: ${STT_BASE_URL:http://127.0.0.1:8001}
+  timeout-seconds: ${STT_TIMEOUT_SECONDS:120}

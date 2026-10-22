@@ -1,0 +1,7 @@
+# 로컬 개발용 Qwen3 8B 양자화 모델. AWS Triton FP8 설정과 구분한다.
+inference:
+  base-url: http://127.0.0.1:11434
+  model: qwen3:8b
+  mode: live
+  reasoning-effort: none
+  timeout-seconds: 45
