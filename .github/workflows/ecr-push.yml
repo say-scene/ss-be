@@ -1,0 +1,29 @@
+name: ecr-push
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ap-northeast-2
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      # Jib은 Docker 데몬 없이 ~/.docker/config.json의 ECR 로그인 정보로 직접 push한다.
+      - run: mvn -B compile jib:build -Dimage=${{ steps.ecr.outputs.registry }}/ss_be:${GITHUB_SHA::7}
