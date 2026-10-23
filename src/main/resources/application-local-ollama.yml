@@ -5,3 +5,7 @@ inference:
   mode: live
   reasoning-effort: none
   timeout-seconds: 180
+
+# localhost HTTP 개발에만 적용. 배포 기본값은 Secure 쿠키다.
+conversation:
+  cookie-secure: false

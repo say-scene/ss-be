@@ -66,6 +66,7 @@ public class InferenceController {
         Map.entry("pharmacy-visit", new Scenario(promptResource("pharmacy-visit.txt"), "Greet the customer and ask how you can help. Do not diagnose or give specific drugs or dosages; this is language practice.")),
         Map.entry("phone-reservation", new Scenario(promptResource("phone-reservation.txt"), "Answer the call and ask which date the caller would like to book.")),
         Map.entry("infra-interview", new Scenario(promptResource("infra-interview.txt"), "Welcome the candidate and ask them to briefly introduce their infrastructure experience.")));
+    static boolean supportsScenario(String id) { return id != null && SCENARIOS.containsKey(id); }
     private static String systemPrompt(Scenario scenario) { return COMMON_PROMPT + "\n\n" + scenario.prompt(); }
 
     public record ChatMessage(String role, String content) {}
@@ -80,6 +81,127 @@ public class InferenceController {
     @PostMapping("/api/v1/demo/cafe/suggestion")
     public ResponseEntity<?> suggestion(@RequestBody ChatRequest body) {
         return conversation(body, true);
+    }
+
+    public record TranslationRequest(String sessionId, String messageId, Integer revision, String text) {}
+
+    @PostMapping("/api/v1/translate")
+    public ResponseEntity<?> translate(@RequestBody TranslationRequest body) {
+        if (body == null || body.sessionId() == null || body.sessionId().isBlank()
+                || body.messageId() == null || body.messageId().isBlank()
+                || body.revision() == null || body.revision() < 1
+                || body.text() == null || body.text().isBlank() || body.text().length() > 4000)
+            return error(400, "INVALID_TRANSLATION", UUID.randomUUID().toString());
+        var result = complete(List.of(
+            Map.of("role", "system", "content", promptResource("translation.txt")),
+            Map.of("role", "user", "content", body.text().trim())), false, true);
+        if (!result.getStatusCode().is2xxSuccessful()) return result;
+        var response = new HashMap<String, Object>();
+        ((Map<?, ?>) result.getBody()).forEach((key, value) -> response.put(key.toString(), value));
+        response.put("sessionId", body.sessionId());
+        response.put("messageId", body.messageId());
+        response.put("revision", body.revision());
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(response);
+    }
+
+    public record LookupRequest(String expression, String example) {}
+
+    @PostMapping("/api/v1/lookup")
+    public ResponseEntity<?> lookup(@RequestBody LookupRequest body) {
+        String requestId = UUID.randomUUID().toString();
+        if (body == null || body.expression() == null || body.expression().isBlank()
+                || body.example() == null || body.example().isBlank()
+                || !body.example().toLowerCase(Locale.ROOT).contains(body.expression().trim().toLowerCase(Locale.ROOT)))
+            return error(400, "INVALID_LOOKUP", requestId);
+        try {
+            // 구조화 생성 경로를 공유하되 리포트의 발화 평가 프롬프트는 사용하지 않는다.
+            var result = complete(List.of(
+                Map.of("role", "system", "content", promptResource("lookup.txt")),
+                Map.of("role", "user", "content", json.writeValueAsString(body))), false, false, true);
+            if (!result.getStatusCode().is2xxSuccessful()) return result;
+            var response = (Map<?, ?>) result.getBody();
+            requestId = response.get("requestId").toString();
+            var details = json.readTree(response.get("text").toString());
+            var output = new HashMap<String, Object>();
+            for (var field : List.of("meaningKo", "partOfSpeech", "exampleKo")) {
+                if (!details.path(field).isTextual() || details.path(field).asText().isBlank())
+                    return error(502, "INVALID_LOOKUP_RESPONSE", requestId);
+                output.put(field, details.path(field).asText().trim());
+            }
+            output.put("expression", body.expression()); output.put("example", body.example());
+            output.put("requestId", requestId);
+            return ResponseEntity.ok().header("Cache-Control", "no-store").body(output);
+        } catch (Exception e) {
+            log.warn("lookup_failed requestId={} type={}", requestId, e.getClass().getSimpleName());
+            return error(502, "INVALID_LOOKUP_RESPONSE", requestId);
+        }
+    }
+
+    public record ReportMessage(String messageId, Integer revision, String role, String text) {}
+    public record ReportRequest(String sessionId, String scenarioId, List<ReportMessage> messages) {}
+
+    @PostMapping("/api/v1/report")
+    public ResponseEntity<?> report(@RequestBody ReportRequest body) {
+        String requestId = UUID.randomUUID().toString();
+        if (body == null || body.sessionId() == null || body.sessionId().isBlank()
+                || body.scenarioId() == null || !SCENARIOS.containsKey(body.scenarioId())
+                || body.messages() == null || body.messages().isEmpty())
+            return error(400, "INVALID_REPORT", requestId);
+        var ids = new HashSet<String>();
+        var users = new ArrayList<ReportMessage>();
+        for (int i = 0; i < body.messages().size(); i++) {
+            var message = body.messages().get(i);
+            if (message == null || message.messageId() == null || message.messageId().isBlank()
+                    || !ids.add(message.messageId()) || message.revision() == null || message.revision() < 1
+                    || !(i % 2 == 0 ? "assistant" : "user").equals(message.role())
+                    || message.text() == null || message.text().isBlank())
+                return error(400, "INVALID_REPORT", requestId);
+            if ("user".equals(message.role())) users.add(message);
+        }
+        if (users.isEmpty()) return error(400, "NO_USER_UTTERANCES", requestId);
+        try {
+            var result = complete(List.of(
+                Map.of("role", "system", "content", promptResource("report.txt")
+                    + "\nPractice scenario:\n" + SCENARIOS.get(body.scenarioId()).prompt()),
+                Map.of("role", "user", "content", json.writeValueAsString(Map.of(
+                    "conversation", body.messages(),
+                    "outputTemplate", Map.of("summary", List.of("", ""), "corrections", users.stream().map(u -> Map.of(
+                        "messageId", u.messageId(), "explanationKo", "", "betterExpressionEn", "")).toList()))))), false, false, true);
+            if (!result.getStatusCode().is2xxSuccessful()) return result;
+            var response = (Map<?, ?>) result.getBody();
+            requestId = response.get("requestId").toString();
+            var review = json.readTree(response.get("text").toString());
+            var summary = review.path("summary");
+            var corrections = review.path("corrections");
+            if (!summary.isArray() || summary.size() < 2 || summary.size() > 3
+                    || !corrections.isArray() || corrections.size() != users.size())
+                return error(502, "INVALID_REPORT_RESPONSE", requestId);
+            var lines = new ArrayList<String>();
+            for (var line : summary) {
+                if (!line.isTextual() || line.asText().isBlank()) return error(502, "INVALID_REPORT_RESPONSE", requestId);
+                lines.add(line.asText().trim());
+            }
+            var turns = new ArrayList<Map<String, Object>>();
+            var correctedIds = new HashSet<String>();
+            for (var correction : corrections) {
+                var user = users.stream().filter(u -> u.messageId().equals(correction.path("messageId").asText())).findFirst();
+                if (user.isEmpty() || !correctedIds.add(user.get().messageId())
+                        || !correction.path("explanationKo").isTextual() || correction.path("explanationKo").asText().isBlank()
+                        || !correction.path("betterExpressionEn").isTextual() || correction.path("betterExpressionEn").asText().isBlank())
+                    return error(502, "INVALID_REPORT_RESPONSE", requestId);
+                var source = user.get();
+                turns.add(Map.of("messageId", source.messageId(), "revision", source.revision(), "text", source.text(),
+                    "explanationKo", correction.path("explanationKo").asText().trim(),
+                    "betterExpressionEn", correction.path("betterExpressionEn").asText().trim()));
+            }
+            // 원문과 revision은 모델 출력이 아닌 확정 스냅샷에서 가져온다.
+            turns.sort(Comparator.comparingInt(t -> users.stream().map(ReportMessage::messageId).toList().indexOf(t.get("messageId"))));
+            return ResponseEntity.ok().header("Cache-Control", "no-store").body(Map.of(
+                "sessionId", body.sessionId(), "summary", lines, "turns", turns, "requestId", requestId));
+        } catch (Exception e) {
+            log.warn("report_failed requestId={} type={}", requestId, e.getClass().getSimpleName());
+            return error(502, "INVALID_REPORT_RESPONSE", requestId);
+        }
     }
 
     private ResponseEntity<?> conversation(ChatRequest body, boolean suggestion) {
@@ -107,12 +229,18 @@ public class InferenceController {
         return complete(messages, false);
     }
     private ResponseEntity<?> complete(List<Map<String, String>> messages, boolean suggestion) {
+        return complete(messages, suggestion, false);
+    }
+    private ResponseEntity<?> complete(List<Map<String, String>> messages, boolean suggestion, boolean translation) {
+        return complete(messages, suggestion, translation, false);
+    }
+    private ResponseEntity<?> complete(List<Map<String, String>> messages, boolean suggestion, boolean translation, boolean structured) {
         String requestId = UUID.randomUUID().toString();
         if (model.isBlank()) return error(503, "INFERENCE_NOT_CONFIGURED", requestId);
         try {
             var payload = new HashMap<String, Object>(Map.of("model", model, "stream", false,
-                "max_tokens", suggestion ? 256 : 128, "temperature", 0.7, "top_p", 0.8, "messages", messages));
-            if (suggestion) payload.put("response_format", Map.of("type", "json_object"));
+                "max_tokens", structured ? 4096 : translation ? 2048 : suggestion ? 256 : 128, "temperature", (translation || structured) ? 0.2 : 0.7, "top_p", 0.8, "messages", messages));
+            if (suggestion || translation || structured) payload.put("response_format", Map.of("type", "json_object"));
             if (!reasoningEffort.isBlank()) payload.put("reasoning_effort", reasoningEffort);
             var builder = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/chat/completions"))
                 .timeout(timeout).header("Content-Type", "application/json")
@@ -125,6 +253,16 @@ public class InferenceController {
             }
             var content = json.readTree(response.body()).path("choices").path(0).path("message").path("content");
             if (!content.isTextual() || content.asText().isBlank()) return error(502, "INVALID_INFERENCE_RESPONSE", requestId);
+            if (structured && "length".equals(json.readTree(response.body()).path("choices").path(0).path("finish_reason").asText()))
+                return error(502, "INCOMPLETE_STRUCTURED_RESPONSE", requestId);
+            if (translation) {
+                var translated = json.readTree(content.asText()).path("translation");
+                var finish = json.readTree(response.body()).path("choices").path(0).path("finish_reason").asText();
+                if (!translated.isTextual() || translated.asText().isBlank() || "length".equals(finish))
+                    return error(502, "INVALID_TRANSLATION_RESPONSE", requestId);
+                return ResponseEntity.ok().header("Cache-Control", "no-store").body(Map.of(
+                    "text", translated.asText().trim(), "mode", mode, "requestId", requestId));
+            }
             if (suggestion) {
                 var hint = json.readTree(content.asText());
                 var sentence = hint.path("sentence");

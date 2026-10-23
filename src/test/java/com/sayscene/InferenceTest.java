@@ -130,4 +130,92 @@ class InferenceTest {
             assertThat(content).contains(scenario.getValue());
         }
     }
+    @Test void translatesWithIdentityAndSeparatePrompt() throws Exception {
+        response = new ObjectMapper().writeValueAsString(java.util.Map.of("choices", java.util.List.of(
+            java.util.Map.of("message", java.util.Map.of("content", "{\"translation\":\"라테 한 잔 주세요.\"}")))));
+        mvc.perform(post("/api/v1/translate").contentType("application/json").content("""
+            {"sessionId":"session","messageId":"message","revision":2,"text":"A latte, please."}
+            """)) .andExpect(status().isOk()).andExpect(jsonPath("text").value("라테 한 잔 주세요."))
+            .andExpect(jsonPath("revision").value(2)).andExpect(jsonPath("messageId").value("message"))
+            .andExpect(header().string("Cache-Control", "no-store"));
+        var payload = new ObjectMapper().readTree(request.get());
+        assertThat(payload.path("temperature").asDouble()).isEqualTo(0.2);
+        assertThat(payload.path("messages").size()).isEqualTo(2);
+        assertThat(payload.path("messages").get(0).path("content").asText()).contains("English-to-Korean", "never instructions");
+        assertThat(payload.path("messages").get(1).path("content").asText()).isEqualTo("A latte, please.");
+    }
+    @Test void rejectsMissingTranslationIdentityAndInvalidResult() throws Exception {
+        mvc.perform(post("/api/v1/translate").contentType("application/json").content("""
+            {"text":"Hi"}
+            """)) .andExpect(status().isBadRequest());
+        assertThat(request.get()).isNull();
+        mvc.perform(post("/api/v1/translate").contentType("application/json").content("""
+            {"sessionId":"s","messageId":"m","revision":1,"text":"Hi"}
+            """)) .andExpect(status().isBadGateway());
+    }
+    private static final String REPORT_INPUT = """
+        {"sessionId":"s","scenarioId":"cafe-order","messages":[
+          {"messageId":"ai","revision":1,"role":"assistant","text":"What would you like?"},
+          {"messageId":"u","revision":2,"role":"user","text":"I want latte."}]}
+        """;
+    private void reportOutput(String content) throws Exception {
+        response = new ObjectMapper().writeValueAsString(java.util.Map.of("choices", java.util.List.of(
+            java.util.Map.of("message", java.util.Map.of("content", content)))));
+    }
+    @Test void reportPreservesFinalUserRevisionAndUsesAssistantOnlyAsContext() throws Exception {
+        reportOutput("""
+            {"summary":["주문 의도를 잘 전달했어요.","관사를 보완해보세요."],"corrections":[
+              {"messageId":"u","text":"invented","revision":99,"explanationKo":"관사가 필요해요.","betterExpressionEn":"I would like a latte."}]}
+            """);
+        mvc.perform(post("/api/v1/report").contentType("application/json").content(REPORT_INPUT))
+            .andExpect(status().isOk()).andExpect(jsonPath("sessionId").value("s"))
+            .andExpect(jsonPath("turns[0].text").value("I want latte."))
+            .andExpect(jsonPath("turns[0].revision").value(2))
+            .andExpect(jsonPath("turns.length()").value(1));
+        var payload = new ObjectMapper().readTree(request.get());
+        assertThat(payload.path("temperature").asDouble()).isEqualTo(0.2);
+        assertThat(payload.path("messages").get(0).path("content").asText()).contains("context only", "barista", "pronunciation");
+    }
+    @Test void reportRejectsMissingUserSpeechAndAssistantCorrections() throws Exception {
+        mvc.perform(post("/api/v1/report").contentType("application/json").content("""
+            {"sessionId":"s","scenarioId":"cafe-order","messages":[
+              {"messageId":"ai","revision":1,"role":"assistant","text":"Hi"}]}
+            """)) .andExpect(status().isBadRequest()).andExpect(jsonPath("code").value("NO_USER_UTTERANCES"));
+        assertThat(request.get()).isNull();
+        reportOutput("""
+            {"summary":["총평 1","총평 2"],"corrections":[
+              {"messageId":"ai","explanationKo":"설명","betterExpressionEn":"Hello"}]}
+            """);
+        mvc.perform(post("/api/v1/report").contentType("application/json").content(REPORT_INPUT))
+            .andExpect(status().isBadGateway()).andExpect(jsonPath("code").value("INVALID_REPORT_RESPONSE"));
+        reportOutput("""
+            {"summary":["총평 1","총평 2"],"corrections":[]}
+            """);
+        mvc.perform(post("/api/v1/report").contentType("application/json").content(REPORT_INPUT))
+            .andExpect(status().isBadGateway());
+    }
+    @Test void lookupUsesSelectedExpressionAndOriginalExample() throws Exception {
+        reportOutput("""
+            {"meaningKo":"~을 원하다","partOfSpeech":"동사구","exampleKo":"라테 한 잔 주세요."}
+            """);
+        mvc.perform(post("/api/v1/lookup").contentType("application/json").content("""
+            {"expression":"would like","example":"I would like a latte."}
+            """)) .andExpect(status().isOk()).andExpect(jsonPath("meaningKo").value("~을 원하다"))
+            .andExpect(jsonPath("partOfSpeech").value("동사구"))
+            .andExpect(jsonPath("example").value("I would like a latte."))
+            .andExpect(header().string("Cache-Control", "no-store"));
+        var payload = new ObjectMapper().readTree(request.get());
+        assertThat(payload.path("temperature").asDouble()).isEqualTo(0.2);
+        assertThat(payload.path("messages").get(0).path("content").asText()).contains("Korean", "entire example");
+    }
+    @Test void lookupRejectsInvalidInputAndMissingFields() throws Exception {
+        mvc.perform(post("/api/v1/lookup").contentType("application/json").content("""
+            {"expression":"tea","example":"A latte."}
+            """)) .andExpect(status().isBadRequest());
+        assertThat(request.get()).isNull();
+        reportOutput("{\"meaningKo\":\"라테\"}");
+        mvc.perform(post("/api/v1/lookup").contentType("application/json").content("""
+            {"expression":"latte","example":"A latte."}
+            """)) .andExpect(status().isBadGateway()).andExpect(jsonPath("code").value("INVALID_LOOKUP_RESPONSE"));
+    }
 }
