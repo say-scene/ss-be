@@ -17,6 +17,12 @@ inference:
 
 # 로컬 STT의 검증용 상한: 녹음 30초, 파일 2MiB. 음성은 디스크에 저장하지 않는다.
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+      connect-timeout: 2s
   servlet:
     multipart:
       max-file-size: 2MB
@@ -25,3 +31,7 @@ spring:
 stt:
   base-url: ${STT_BASE_URL:http://127.0.0.1:8001}
   timeout-seconds: ${STT_TIMEOUT_SECONDS:120}
+
+conversation:
+  ttl-seconds: ${CONVERSATION_TTL_SECONDS:86400}
+  cookie-secure: ${SESSION_COOKIE_SECURE:true}
