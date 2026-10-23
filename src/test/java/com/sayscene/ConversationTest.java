@@ -29,7 +29,7 @@ class ConversationTest {
             }
         });
         inference = mock(InferenceController.class);
-        doReturn(ResponseEntity.ok(Map.of("text", "Hello!", "mode", "mock"))).when(inference).cafe(anyString());
+        doReturn(ResponseEntity.ok(Map.of("text", "Hello!", "mode", "mock"))).when(inference).opening(anyString(), anyString());
         doReturn(ResponseEntity.ok(Map.of("text", "Anything else?", "mode", "mock"))).when(inference).reply(any());
         controller = new ConversationController(store, json, inference, true, 86400, 180);
         var response = new MockHttpServletResponse(); controller.current(null, response);
@@ -40,6 +40,19 @@ class ConversationTest {
     }
     ConversationController.Turn opening() { return new ConversationController.Turn(session, UUID.randomUUID().toString(), 0, null, false); }
     ConversationController.Message user(String text) { return new ConversationController.Message(UUID.randomUUID().toString(), text, "user", 1, null); }
+    @Test void presetOpeningIsSavedReusedAndPassedToNextReply() {
+        doCallRealMethod().when(inference).opening(anyString(), anyString());
+        var turn = opening();
+        controller.turn(owner, turn);
+        var saved = controller.current(owner, new MockHttpServletResponse()).active();
+        assertThat(saved.messages().getFirst().text()).isEqualTo(OpeningLines.pick("cafe-order", session));
+        assertThat(saved.messages().getFirst().mode()).isEqualTo("preset");
+        controller.turn(owner, turn);
+        assertThat(controller.current(owner, new MockHttpServletResponse()).active()).isEqualTo(saved);
+        controller.turn(owner, new ConversationController.Turn(session, UUID.randomUUID().toString(), 1, user("Tea, please."), false));
+        verify(inference).reply(argThat(request -> request.messages().getFirst().content().equals(saved.messages().getFirst().text())));
+        verify(inference, times(1)).opening("cafe-order", session);
+    }
     @Test void issuedCookieIsRequiredAndUnknownCookieIsReplaced() {
         assertThatThrownBy(() -> controller.start(UUID.randomUUID().toString(), new ConversationController.Start(session,"cafe-order",null))).isInstanceOf(ResponseStatusException.class);
         var response = new MockHttpServletResponse(); controller.current(UUID.randomUUID().toString(), response);
@@ -47,7 +60,7 @@ class ConversationTest {
     }
     @Test void completedRequestsAreReusedAndEditsReplacePreviousTurn() {
         var start = opening(); controller.turn(owner, start); controller.turn(owner, start);
-        verify(inference, times(1)).cafe("cafe-order");
+        verify(inference, times(1)).opening("cafe-order", session);
         var user = user("A latte.");
         controller.turn(owner, new ConversationController.Turn(session, UUID.randomUUID().toString(), 1, user, false));
         var edited = new ConversationController.Message(user.id(), "Tea, please.", "user", 2, null);
@@ -60,7 +73,7 @@ class ConversationTest {
     }
     @Test void inFlightRequestIsNotRepeatedAndEndFencesLateCompletion() throws Exception {
         var entered = new CountDownLatch(1); var finish = new CountDownLatch(1);
-        doAnswer(i -> { entered.countDown(); finish.await(5, TimeUnit.SECONDS); return ResponseEntity.ok(Map.of("text","late","mode","mock")); }).when(inference).cafe(anyString());
+        doAnswer(i -> { entered.countDown(); finish.await(5, TimeUnit.SECONDS); return ResponseEntity.ok(Map.of("text","late","mode","mock")); }).when(inference).opening(anyString(), anyString());
         var turn = opening(); var executor = Executors.newSingleThreadExecutor();
         try {
             var pending = executor.submit(() -> controller.turn(owner, turn));
@@ -69,7 +82,7 @@ class ConversationTest {
             controller.end(owner, new ConversationController.End(session)); finish.countDown();
             assertThatThrownBy(() -> pending.get(3, TimeUnit.SECONDS)).isInstanceOf(ExecutionException.class);
             assertThat(controller.current(owner, new MockHttpServletResponse()).active()).isNull();
-            verify(inference, times(1)).cafe(anyString());
+            verify(inference, times(1)).opening(anyString(), anyString());
         } finally { finish.countDown(); executor.shutdownNow(); }
     }
     @Test void missingRedisCanRestoreButClosedConversationCannot() {

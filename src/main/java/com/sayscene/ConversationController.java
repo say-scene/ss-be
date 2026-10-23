@@ -128,7 +128,7 @@ public class ConversationController {
         Snapshot snapshot = reserved.active();
         if (body.requestId().equals(snapshot.lastRequestId())) return ResponseEntity.ok(reserved);
         List<Message> history = history(snapshot, body);
-        ResponseEntity<?> result = history.isEmpty() ? inference.cafe(snapshot.scenarioId()) : inference.reply(new InferenceController.ChatRequest(snapshot.scenarioId(),
+        ResponseEntity<?> result = history.isEmpty() ? inference.opening(snapshot.scenarioId(), snapshot.sessionId()) : inference.reply(new InferenceController.ChatRequest(snapshot.scenarioId(),
             history.stream().map(m -> new InferenceController.ChatMessage(m.role(), m.text())).toList()));
         if (!result.getStatusCode().is2xxSuccessful()) {
             change(owner, state -> {
