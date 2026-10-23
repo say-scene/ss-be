@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 
-# 연속 push 시 ss_k8s 태그 커밋이 엇갈리지 않도록 한 번에 하나씩 실행한다.
+# 연속 push 시 ss-k8s 태그 커밋이 엇갈리지 않도록 한 번에 하나씩 실행한다.
 concurrency:
   group: ecr-push
   cancel-in-progress: false
@@ -33,7 +33,7 @@ jobs:
       - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
       # Jib은 Docker 데몬 없이 ~/.docker/config.json의 ECR 로그인 정보로 직접 push한다.
-      - run: mvn -B compile jib:build -Dimage=${{ steps.ecr.outputs.registry }}/ss_be:${GITHUB_SHA::7}
+      - run: mvn -B compile jib:build -Dimage=${{ steps.ecr.outputs.registry }}/ss-be:${GITHUB_SHA::7}
 
   # environment를 이 job에만 둔다. push job에 두면 OIDC sub가 environment 형식으로 바뀌어 AWS 신뢰 정책과 어긋난다.
   update-tag:
@@ -47,18 +47,18 @@ jobs:
           app-id: ${{ vars.SS_K8S_APP_ID }}
           private-key: ${{ secrets.SS_K8S_APP_PRIVATE_KEY }}
           owner: say-scene
-          repositories: ss_k8s
+          repositories: ss-k8s
           permission-contents: write
       - uses: actions/checkout@v4
         with:
-          repository: say-scene/ss_k8s
+          repository: say-scene/ss-k8s
           token: ${{ steps.app.outputs.token }}
-      - name: Update ss_k8s image tag
+      - name: Update ss-k8s image tag
         run: |
           # ponytail: 이미지가 하나라 newTag 줄을 sed로 바꾼다. 이미지가 늘면 yq로 name을 골라 바꾼다.
           sed -i "s/^\( *newTag:\).*/\1 ${GITHUB_SHA::7}/" apps/ss-be/kustomization.yaml
           git diff --quiet && exit 0
           git config user.name "${{ steps.app.outputs.app-slug }}[bot]"
           git config user.email "${{ steps.app.outputs.app-slug }}[bot]@users.noreply.github.com"
-          git commit -am "ss_be 이미지 태그 ${GITHUB_SHA::7}로 갱신"
+          git commit -am "ss-be 이미지 태그 ${GITHUB_SHA::7}로 갱신"
           git push
