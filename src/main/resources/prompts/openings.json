@@ -1,0 +1,122 @@
+{
+  "cafe-order": [
+    "Hi! What can I get you to drink?",
+    "Welcome! What would you like to order?",
+    "Hello! What coffee would you like today?",
+    "Hi there! Can I take your drink order?",
+    "Welcome in! What would you like to drink?",
+    "Good to see you! What can I make for you?",
+    "Hello! Are you ready to order a drink?",
+    "Hi! Would you like coffee or tea today?",
+    "Welcome! Would you like to see our drink menu?",
+    "Hi there! Do you have a drink in mind?"
+  ],
+  "restaurant-order": [
+    "Welcome! What would you like to eat?",
+    "Hello! Can I help you choose something from the menu?",
+    "Hi! Are you ready to order?",
+    "Welcome! What kind of food are you in the mood for?",
+    "Hello! Would you like a menu recommendation?",
+    "Hi there! What would you like for your meal?",
+    "Welcome! Do you have any questions about the menu?",
+    "Hello! Would you like to hear about our specials?",
+    "Hi! Is there anything on the menu you would like to try?",
+    "Welcome! Can I take your food order?"
+  ],
+  "clothes-shopping": [
+    "Hello! What are you looking for today?",
+    "Welcome! Can I help you find your size?",
+    "Hi! Is there a particular color you are looking for?",
+    "Hello! Would you like help finding something to try on?",
+    "Welcome! What kind of clothes would you like?",
+    "Hi there! Can I help you with sizes or colors?",
+    "Hello! Are you looking for anything in particular?",
+    "Welcome! Would you like to try something on?",
+    "Hi! What style of clothing are you looking for?",
+    "Hello! Is there an item you would like to see?"
+  ],
+  "subway-route": [
+    "Hello! Which station are you trying to reach?",
+    "Hi! Where would you like to go by subway?",
+    "Hello! Do you need help finding your train?",
+    "Hi there! Which subway line are you looking for?",
+    "Hello! Can I help you plan your subway route?",
+    "Hi! What is your destination station?",
+    "Hello! Do you need help with a transfer?",
+    "Hi! Which station would you like directions to?",
+    "Hello! Are you looking for a particular platform?",
+    "Hi there! Where are you headed today?"
+  ],
+  "street-directions": [
+    "Hi! Where are you trying to go?",
+    "Hello! Do you need help finding a place?",
+    "Hi there! What place are you looking for?",
+    "Hello! Can I help you with directions?",
+    "Hi! What is your destination?",
+    "Hello! Is there somewhere you need directions to?",
+    "Hi there! Are you looking for a nearby building?",
+    "Hello! Where would you like to go from here?",
+    "Hi! Do you need help finding your way?",
+    "Hello! Which place would you like to find?"
+  ],
+  "hotel-checkin": [
+    "Welcome to our hotel! Do you have a reservation?",
+    "Hello! Are you here to check in?",
+    "Welcome! May I have the name on your reservation?",
+    "Hello! How can I help you with your check-in?",
+    "Welcome! Have you booked a room with us?",
+    "Hello! Would you like to check in now?",
+    "Welcome to the hotel! What name is your booking under?",
+    "Hello! Do you need help checking in?",
+    "Welcome! Are you checking in today?",
+    "Hello! Can you tell me the name on your booking?"
+  ],
+  "market-shopping": [
+    "Hello! Can I help you find something?",
+    "Hi! What are you looking for today?",
+    "Welcome! Do you need help finding a product?",
+    "Hello! Is there an item you need?",
+    "Hi there! Can I help you with your shopping?",
+    "Welcome! Are you looking for anything in particular?",
+    "Hello! What would you like to buy?",
+    "Hi! Would you like help finding an aisle?",
+    "Hello! Do you need help with an item or the checkout?",
+    "Welcome! What can I help you find today?"
+  ],
+  "pharmacy-visit": [
+    "Hello! How can I help you today?",
+    "Hi! What would you like to ask the pharmacist?",
+    "Hello! Can you describe how you are feeling?",
+    "Welcome! What brings you to the pharmacy today?",
+    "Hello! What symptoms would you like to discuss?",
+    "Hi! Do you need help explaining your symptoms?",
+    "Hello! What would you like help with today?",
+    "Welcome! Can you tell me what is bothering you?",
+    "Hi! How have you been feeling?",
+    "Hello! What health concern would you like to talk about?"
+  ],
+  "phone-reservation": [
+    "Hello! What date would you like to make a reservation for?",
+    "Thank you for calling! When would you like to book?",
+    "Hello! Can I help you make a reservation?",
+    "Hi! What day and time would you prefer?",
+    "Hello! Which date would you like to reserve?",
+    "Thank you for calling! What time would you like to book?",
+    "Hello! Are you calling to make a reservation?",
+    "Hi! When would you like your reservation?",
+    "Hello! Do you have a preferred date for your booking?",
+    "Thank you for calling! What day works best for you?"
+  ],
+  "infra-interview": [
+    "Welcome! Could you briefly introduce yourself?",
+    "Hello! Can you tell me about your infrastructure experience?",
+    "Thank you for joining us! What infrastructure projects have you worked on?",
+    "Welcome! Could you describe your current technical role?",
+    "Hello! What interests you about this infrastructure role?",
+    "Welcome! Can you walk me through a recent infrastructure project?",
+    "Thank you for coming! What experience do you have with cloud infrastructure?",
+    "Hello! Could you tell me about your experience managing servers?",
+    "Welcome! What infrastructure tools have you used most often?",
+    "Hello! Can you give me a short overview of your technical background?"
+  ]
+}

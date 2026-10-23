@@ -47,6 +47,10 @@ public class InferenceController {
             Map.of("role", "user", "content", scenario.opening())));
     }
 
+    ResponseEntity<?> opening(String scenarioId, String sessionId) {
+        return ResponseEntity.ok().body(Map.of("text", OpeningLines.pick(scenarioId, sessionId), "mode", "preset"));
+    }
+
     private static String promptResource(String name) {
         try (var stream = new ClassPathResource("prompts/" + name).getInputStream()) {
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8).trim();
