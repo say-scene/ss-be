@@ -34,7 +34,7 @@ public class InferenceController {
         if (!Set.of("mock", "live").contains(mode)) throw new IllegalArgumentException("잘못된 inference.mode");
         this.mode = mode;
         this.timeout = Duration.ofSeconds(timeoutSeconds);
-        this.client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        this.client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(5)).build();
     }
 
     // 상태를 만들지 않는 연결 확인 전용 API. 정식 대화 시작 API와 분리한다.
