@@ -16,7 +16,7 @@ public class SttController {
     private final String baseUrl;
     private final Duration timeout;
     private final ObjectMapper json;
-    private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private final HttpClient client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(5)).build();
     public SttController(@Value("${stt.base-url:http://127.0.0.1:8001}") String baseUrl,
                          @Value("${stt.timeout-seconds:120}") int seconds, ObjectMapper json) {
         this.baseUrl = baseUrl.replaceAll("/+$", ""); this.timeout = Duration.ofSeconds(seconds); this.json = json;
