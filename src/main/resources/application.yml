@@ -7,7 +7,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
 inference:
   base-url: ${INFERENCE_BASE_URL:http://localhost:8000}
   model: ${INFERENCE_MODEL:}
