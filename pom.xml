@@ -7,13 +7,25 @@
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-redis</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
+    <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
     <dependency><groupId>org.springdoc</groupId><artifactId>springdoc-openapi-starter-webmvc-ui</artifactId><version>2.8.17</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   </dependencies>
   <build><plugins>
     <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-dependency-plugin</artifactId><version>3.8.1</version>
+      <executions><execution><id>copy-otel-agent</id><phase>process-resources</phase><goals><goal>copy</goal></goals>
+        <configuration><artifactItems><artifactItem>
+          <groupId>io.opentelemetry.javaagent</groupId><artifactId>opentelemetry-javaagent</artifactId><version>2.32.0</version>
+          <outputDirectory>${project.build.directory}/otel-agent</outputDirectory><destFileName>opentelemetry-javaagent.jar</destFileName>
+        </artifactItem></artifactItems></configuration>
+      </execution></executions>
+    </plugin>
     <plugin><groupId>com.google.cloud.tools</groupId><artifactId>jib-maven-plugin</artifactId><version>3.4.5</version>
-      <configuration><from><image>eclipse-temurin:21-jre</image></from><container><ports><port>8080</port></ports><user>10001</user></container></configuration>
+      <configuration><from><image>eclipse-temurin:21-jre</image></from>
+        <extraDirectories><paths><path><from>${project.build.directory}/otel-agent</from><into>/opt/otel</into></path></paths></extraDirectories>
+        <container><ports><port>8080</port></ports><user>10001</user></container>
+      </configuration>
     </plugin>
   </plugins></build>
 </project>
