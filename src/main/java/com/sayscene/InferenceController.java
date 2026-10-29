@@ -121,7 +121,7 @@ public class InferenceController {
             // 구조화 생성 경로를 공유하되 리포트의 발화 평가 프롬프트는 사용하지 않는다.
             var result = complete(List.of(
                 Map.of("role", "system", "content", promptResource("lookup.txt")),
-                Map.of("role", "user", "content", json.writeValueAsString(body))), false, false, true);
+                Map.of("role", "user", "content", json.writeValueAsString(body))), false, false, true, true);
             if (!result.getStatusCode().is2xxSuccessful()) return result;
             var response = (Map<?, ?>) result.getBody();
             requestId = response.get("requestId").toString();
@@ -239,12 +239,20 @@ public class InferenceController {
         return complete(messages, suggestion, translation, false);
     }
     private ResponseEntity<?> complete(List<Map<String, String>> messages, boolean suggestion, boolean translation, boolean structured) {
+        return complete(messages, suggestion, translation, structured, false);
+    }
+    private ResponseEntity<?> complete(List<Map<String, String>> messages, boolean suggestion, boolean translation, boolean structured, boolean lookup) {
         String requestId = UUID.randomUUID().toString();
         if (model.isBlank()) return error(503, "INFERENCE_NOT_CONFIGURED", requestId);
         try {
             var payload = new HashMap<String, Object>(Map.of("model", model, "stream", false,
-                "max_tokens", structured ? 4096 : translation ? 2048 : suggestion ? 256 : 128, "temperature", (translation || structured) ? 0.2 : 0.7, "top_p", 0.8, "messages", messages));
-            if (suggestion || translation || structured) payload.put("response_format", Map.of("type", "json_object"));
+                "max_tokens", lookup ? 512 : structured ? 4096 : translation ? 2048 : suggestion ? 256 : 128, "temperature", (translation || structured) ? 0.2 : 0.7, "top_p", 0.8, "messages", messages));
+            if (suggestion || translation || structured) {
+                payload.put("response_format", Map.of("type", "json_object"));
+            }
+            if (lookup || (!suggestion && !translation && !structured)) {
+                payload.put("chat_template_kwargs", Map.of("enable_thinking", false));
+            }
             if (!reasoningEffort.isBlank()) payload.put("reasoning_effort", reasoningEffort);
             var builder = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/chat/completions"))
                 .timeout(timeout).header("Content-Type", "application/json")

@@ -174,6 +174,7 @@ class InferenceTest {
             .andExpect(jsonPath("turns.length()").value(1));
         var payload = new ObjectMapper().readTree(request.get());
         assertThat(payload.path("temperature").asDouble()).isEqualTo(0.2);
+        assertThat(payload.path("max_tokens").asInt()).isEqualTo(4096);
         assertThat(payload.path("messages").get(0).path("content").asText()).contains("context only", "barista", "pronunciation");
     }
     @Test void reportRejectsMissingUserSpeechAndAssistantCorrections() throws Exception {
@@ -206,6 +207,9 @@ class InferenceTest {
             .andExpect(header().string("Cache-Control", "no-store"));
         var payload = new ObjectMapper().readTree(request.get());
         assertThat(payload.path("temperature").asDouble()).isEqualTo(0.2);
+        assertThat(payload.path("max_tokens").asInt()).isEqualTo(512);
+        assertThat(payload.path("chat_template_kwargs").path("enable_thinking").asBoolean()).isFalse();
+        assertThat(payload.path("response_format").path("type").asText()).isEqualTo("json_object");
         assertThat(payload.path("messages").get(0).path("content").asText()).contains("Korean", "entire example");
     }
     @Test void lookupRejectsInvalidInputAndMissingFields() throws Exception {
