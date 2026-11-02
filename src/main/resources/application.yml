@@ -35,3 +35,7 @@ stt:
 conversation:
   ttl-seconds: ${CONVERSATION_TTL_SECONDS:86400}
   cookie-secure: ${SESSION_COOKIE_SECURE:true}
+
+# Empty disables browser trace export. Only the server chooses the private collector destination.
+browser-telemetry:
+  otlp-endpoint: ${BROWSER_TELEMETRY_OTLP_ENDPOINT:}
